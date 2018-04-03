@@ -32,6 +32,7 @@ public class MainActivity extends AppCompatActivity implements OnColorSelectedLi
     private ColorPickerView colorPicker=null;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        setTheme(R.style.AppTheme);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
@@ -95,7 +96,7 @@ public class MainActivity extends AppCompatActivity implements OnColorSelectedLi
         try {
             //attempt to place data on the outstream to the BT device
             outStream.write(msgBuffer);
-        } catch (IOException e) {
+        } catch (Exception e) {
             //if the sending fails this is most likely because device is no longer there
             Toast.makeText(getBaseContext(), "ERROR - Błąd połączenia - sprawdź czy kuźwa masz w kontakcie.", Toast.LENGTH_SHORT).show();
             Connect(DeviceAdress);
@@ -143,8 +144,8 @@ public class MainActivity extends AppCompatActivity implements OnColorSelectedLi
         // Establish the connection.
         if(!btSocket.isConnected()) {
             try {
-                btSocket.connect();
-            } catch (IOException e) {
+                btSocket=(BluetoothSocket) device.getClass().getMethod("createRfcommSocket", new Class[] {int.class}).invoke(device,1);;
+            } catch (Exception e) {
                 try {
                     btSocket.close();        //If IO exception occurs attempt to close socket
                 } catch (IOException e2) {
