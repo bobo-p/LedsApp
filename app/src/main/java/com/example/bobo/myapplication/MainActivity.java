@@ -4,15 +4,21 @@ import android.app.Application;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.os.Handler;
 import android.preference.PreferenceManager;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.support.v7.widget.Toolbar;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.Toast;
 
+import com.example.bobo.myapplication.com.example.bobo.myapplication.services.BluetoothService;
 import com.flask.colorpicker.ColorPickerView;
 import com.flask.colorpicker.OnColorSelectedListener;
 import com.flask.colorpicker.slider.LightnessSlider;
@@ -23,44 +29,52 @@ import java.io.OutputStream;
 import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity implements OnColorSelectedListener,OnValueChangedListener {
-    public static final String EXTRA_MESSAGE = "com.example.myfirstapp.MESSAGE";
+
+    public static final String TOAST ="toast" ;
     public String DeviceAdress="";
     private BluetoothAdapter btAdapter = null;
     private BluetoothSocket btSocket = null;
     private OutputStream outStream = null;
     private static final UUID MY_UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
     private ColorPickerView colorPicker=null;
+    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            final String action = intent.getAction();
+
+            if (action.equals(BluetoothAdapter.ACTION_STATE_CHANGED)) {
+                final int bluetoothState = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE,
+                        BluetoothAdapter.ERROR);
+                switch (bluetoothState) {
+                    case BluetoothAdapter.STATE_ON:
+                        Connect();
+                        break;
+                }
+            }
+        }
+    };
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         setTheme(R.style.AppTheme);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
+        IntentFilter filter = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
+        registerReceiver(mReceiver, filter);
         colorPicker=(ColorPickerView)findViewById(R.id.color_picker_view);
         colorPicker.addOnColorSelectedListener(this);
         LightnessSlider lightnessSlider=(LightnessSlider)findViewById(R.id.v_lightness_slider);
         lightnessSlider.setOnValueChangedListener(this);
         btAdapter = BluetoothAdapter.getDefaultAdapter();
+        checkBTState();
+
 
     }
     @Override
     public void onResume() {
         super.onResume();
-        try {
-            checkBTState();
-            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
-            DeviceAdress=prefs.getString(getString(R.string.savedAdress),"");
-        }
-        catch(Exception e) {
-            Toast.makeText(getBaseContext(),e.toString(),Toast.LENGTH_LONG).show();
-        }
-        if(DeviceAdress=="")
-        {
-            Intent intent =new Intent(this,DeviceList.class);
-            startActivity(intent);
-            return;
-        }
-        Connect(DeviceAdress);
+
+
 
     }
 
@@ -88,6 +102,8 @@ public class MainActivity extends AppCompatActivity implements OnColorSelectedLi
                 Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
                 startActivityForResult(enableBtIntent, 1);
             }
+            else
+                Connect();
         }
     }
     private void sendData(String message) {
@@ -96,10 +112,11 @@ public class MainActivity extends AppCompatActivity implements OnColorSelectedLi
         try {
             //attempt to place data on the outstream to the BT device
             outStream.write(msgBuffer);
+
         } catch (Exception e) {
             //if the sending fails this is most likely because device is no longer there
             Toast.makeText(getBaseContext(), "ERROR - Błąd połączenia - sprawdź czy kuźwa masz w kontakcie.", Toast.LENGTH_SHORT).show();
-            Connect(DeviceAdress);
+
         }
     }
 
@@ -111,7 +128,12 @@ public class MainActivity extends AppCompatActivity implements OnColorSelectedLi
             sendData(GetRgbString(input));
         }
     }
-    private void Connect(String address)
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        unregisterReceiver(mReceiver);
+    }
+    private void ConnectToSelectedDevice(String address)
     {
         if(btSocket!=null && btSocket.isConnected())
         {
@@ -144,8 +166,8 @@ public class MainActivity extends AppCompatActivity implements OnColorSelectedLi
         // Establish the connection.
         if(!btSocket.isConnected()) {
             try {
-                btSocket=(BluetoothSocket) device.getClass().getMethod("createRfcommSocket", new Class[] {int.class}).invoke(device,1);;
-            } catch (Exception e) {
+                btSocket.connect();
+            } catch (IOException e) {
                 try {
                     btSocket.close();        //If IO exception occurs attempt to close socket
                 } catch (IOException e2) {
@@ -159,5 +181,23 @@ public class MainActivity extends AppCompatActivity implements OnColorSelectedLi
         } catch (IOException e) {
             Toast.makeText(getBaseContext(), "ERROR - Nie mnmożna utworzyć outstream", Toast.LENGTH_SHORT).show();
         }
+    }
+    public void Connect()
+    {
+        try {
+
+            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
+            DeviceAdress=prefs.getString(getString(R.string.savedAdress),"");
+        }
+        catch(Exception e) {
+            Toast.makeText(getBaseContext(),e.toString(),Toast.LENGTH_LONG).show();
+        }
+        if(DeviceAdress=="")
+        {
+            Intent intentDev =new Intent(getApplicationContext(),DeviceList.class);
+            startActivity(intentDev);
+            return;
+        }
+        ConnectToSelectedDevice(DeviceAdress);
     }
 }

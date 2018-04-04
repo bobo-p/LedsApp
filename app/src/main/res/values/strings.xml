@@ -4,4 +4,6 @@
     <string name="button_send">Send</string>
     <string name="pick_device">Wybierz urządzenie:</string>
     <string name="savedAdress">DEVICE_ADRESS</string>
+    <string name="cant_connect">Nie można połączyć</string>
+    <string name="device_select">Wybierz urządzenie</string>
 </resources>
